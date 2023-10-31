@@ -1,37 +1,27 @@
-use tokio::{io::BufStream, net::TcpStream, net::TcpListener, io::AsyncBufReadExt};
-mod req;
+use std::convert::Infallible;
+use std::net::SocketAddr;
+use hyper::{Body, Request, Response, Server};
+use hyper::service::{make_service_fn, service_fn};
 
-static DEFAULT_PORT: &str = "8080";
-
-#[tokio::main]
-// async fn main() -> anyhow::Result<()> {
-    async fn main() -> anyhow::Result<()> {
-    let port: u16 = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| DEFAULT_PORT.to_string())
-        .parse()?;
-
-    let listener = TcpListener::bind(format!("0.0.0.0:{port}")).await.unwrap();
-
-    println!("listening on {}", listener.local_addr()?);
-
-    loop {
-        let (stream, addr) = listener.accept().await?;
-        let mut stream = BufStream::new(stream);
-        tokio::spawn(async move {
-            println!("new connection {}", addr);
-            match handle_connection(&mut stream).await {
-                Ok(()) => println!("all good"),
-                Err(e) => println!("all bad {}", e),
-            };
-        });
-    }
+async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
+    Ok(Response::new(Body::from("Hello World")))
 }
 
-pub async fn handle_connection(stream: &mut BufStream<TcpStream>) -> anyhow::Result<()> {
-    let mut line_buffer = String::new();
-    stream.read_until(byte, buf)
-    stream.read_line(&mut line_buffer).await?;
-    println!("got this: {}", line_buffer);
-    Ok(())
+#[tokio::main]
+async fn main() {
+    // Construct our SocketAddr to listen on...
+    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+
+    // And a MakeService to handle each connection...
+    let make_service = make_service_fn(|_conn| async {
+        Ok::<_, Infallible>(service_fn(handle))
+    });
+
+    // Then bind and serve...
+    let server = Server::bind(&addr).serve(make_service);
+
+    // And run forever...
+    if let Err(e) = server.await {
+        eprintln!("server error: {}", e);
+    }
 }
